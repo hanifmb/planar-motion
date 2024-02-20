@@ -7,9 +7,10 @@ The implementation is based on the work of Qiang Fu et al., as listed in the ref
 ./main
 ```
 
-## Results
-![First Image](results/image3.jpg)
-![Second Image](results/image4.jpg)
+## Result Example
+The images show the matched features and their epipolar lines based on the estimated fundamental matrix. </br> </br>
+<a href="url"><img src="results/image3.jpg" height="300" ></a>
+<a href="url"><img src="results/image4.jpg" height="300" ></a>
 
 ## References
 
