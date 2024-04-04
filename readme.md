@@ -3,8 +3,9 @@ The implementation is based on the work of Qiang Fu et al., as listed in the ref
 ## Usage
 
 ```bash
-./c.sh 
-./main
+cmake .
+make
+./main --file first_image.jpg second_image.jpg --thresh 0.6
 ```
 
 ## Example Result
