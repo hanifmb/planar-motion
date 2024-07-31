@@ -1,80 +1,85 @@
+/*
 #ifndef RANSAC_H
 #define RANSAC_H
 
-#include <algorithm>
-#include <functional>
+#include "fpsolver.h"
+#include <cmath>
+#include <cstdlib>
+#include <ctime>
+#include <iostream>
 #include <limits>
-#include <random>
+#include <opencv2/core/mat.hpp>
+#include <opencv2/core/types.hpp>
+#include <opencv2/opencv.hpp>
 #include <vector>
 
-template <typename T, typename Model> class RANSAC {
+class RANSACFundam {
 public:
-  using DataPoint = T;
-  using ModelType = Model;
-
-  RANSAC(int maxIterations, float distanceThreshold, float confidence)
-      : maxIterations(maxIterations), distanceThreshold(distanceThreshold),
+  RANSACFundam(int maxIterations, double threshold, double confidence)
+      : maxIterations(maxIterations), threshold(threshold),
         confidence(confidence) {
-    rng.seed(std::random_device{}());
+    std::srand(std::time(0));
   }
 
-  ModelType
-  run(const std::vector<DataPoint> &dataPoints,
-      std::function<ModelType(const std::vector<DataPoint> &)> modelEstimator,
-      std::function<float(const ModelType &, const DataPoint &)>
-          modelEvaluator) {
+  // Fit a line to the given points using RANSAC
+  cv::Mat run(const std::vector<cv::Point2f> &points1,
+              const std::vector<cv::Point2f> &points2, const cv::Mat k) {
     int bestInlierCount = 0;
-    ModelType bestModel;
+    cv::Mat bestFundam;
+    int totalPoints = points1.size();
 
-    int numDataPoints = dataPoints.size();
-    for (int iteration = 0; iteration < maxIterations; ++iteration) {
-      // Randomly sample data points
-      std::vector<DataPoint> sample = sampleRandomPoints(dataPoints);
+    for (int i = 0; i < maxIterations; ++i) {
+      // Randomly select two points to calculate fundamental matrices
+      int idx1 = std::rand() % totalPoints;
+      int idx2 = std::rand() % totalPoints;
 
-      // Estimate model
-      ModelType model = modelEstimator(sample);
+      if (idx1 == idx2) {
+        --i;
+        continue; // Avoid selecting the same point twice
+      }
 
-      // Evaluate model
-      int inlierCount = 0;
-      for (const auto &point : dataPoints) {
-        float distance = modelEvaluator(model, point);
-        if (distance < distanceThreshold) {
-          ++inlierCount;
+      std::vector<cv::Point2f> points1_est = {points1[idx1], points1[idx2]};
+      std::vector<cv::Point2f> points2_est = {points2[idx1], points2[idx2]};
+
+      // Calculate line parameters (y = mx + b)
+      std::vector<cv::Mat> E = PM::findEssential(points1_est, points2_est, k);
+
+      // Evaluate multiple candidates of essential matrices
+      for (int i = 0; i < E.size(); ++i) {
+        cv::Mat F = k.t().inv() * E[i] * k.inv();
+        cv::Mat err(points1.size(), 1, CV_64FC1);
+        PM::_computeError(points1, points2, F, err);
+
+        // todo: calculate inlierCount
+        int inlierCount = _countBelow(err, threshold);
+        if (inlierCount > bestInlierCount) {
+          bestInlierCount = inlierCount;
+          bestFundam = F;
         }
-      }
 
-      // Update best model if this one is better
-      if (inlierCount > bestInlierCount) {
-        bestInlierCount = inlierCount;
-        bestModel = model;
-      }
-
-      // Check if we can terminate early
-      float inlierRatio = static_cast<float>(bestInlierCount) / numDataPoints;
-      float threshold = 1 - pow(1 - inlierRatio, maxIterations);
-      if (threshold > confidence) {
-        break;
+        // Check if the model is good enough
+        double inlierRatio = static_cast<double>(bestInlierCount) / totalPoints;
+        if (inlierRatio > confidence)
+          return F;
       }
     }
 
-    return bestModel;
+    return bestFundam;
+  }
+
+  int _countBelow(const cv::Mat &err, double threshold) {
+    cv::Mat mask;
+    cv::threshold(err, mask, threshold, 255, cv::THRESH_BINARY_INV);
+    int count = cv::countNonZero(mask);
+    return count;
   }
 
 private:
   int maxIterations;
-  float distanceThreshold;
-  float confidence;
-  std::mt19937 rng;
-
-  std::vector<DataPoint>
-  sampleRandomPoints(const std::vector<DataPoint> &dataPoints) {
-    std::vector<DataPoint> sample;
-    std::uniform_int_distribution<> dist(0, dataPoints.size() - 1);
-    for (size_t i = 0; i < 2; ++i) { // Assuming we need 2 points for the model
-      sample.push_back(dataPoints[dist(rng)]);
-    }
-    return sample;
-  }
+  double distanceThreshold;
+  double confidence;
+  double threshold;
 };
 
 #endif // RANSAC_H
+*/

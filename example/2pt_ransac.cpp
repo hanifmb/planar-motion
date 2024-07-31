@@ -97,7 +97,7 @@ int main() {
   bfMatcher.knnMatch(descriptors1, descriptors2, knnMatches, 2);
 
   // Apply ratio test
-  const float ratio_thresh = 0.75f;
+  const float ratio_thresh = 0.85;
   std::vector<cv::DMatch> goodMatches;
   for (size_t i = 0; i < knnMatches.size(); i++) {
     if (knnMatches[i][0].distance < ratio_thresh * knnMatches[i][1].distance) {
@@ -109,41 +109,25 @@ int main() {
   std::sort(goodMatches.begin(), goodMatches.end());
 
   // Limit the number of matches to the top N matches
-  const int numTopMatches = 20;
+  const int numTopMatches = 50;
   if (goodMatches.size() > numTopMatches) {
     goodMatches.resize(numTopMatches);
   }
 
-  // Draw matched keypoints without lines
-  cv::Mat imgMatches;
-  cv::hconcat(img1, img2, imgMatches); // Combine images side by side
-
-  // Random number generator for colors
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<int> dis(0, 255);
-
+  // Accumulating matched features into points1 and points2
   std::vector<cv::Point2f> points1, points2;
+  int matchesSize = goodMatches.size();
+  points1.reserve(matchesSize), points2.reserve(matchesSize);
   for (size_t i = 0; i < goodMatches.size(); i++) {
-    // Get the keypoints from the matches
     cv::Point2f pt1 = keypoints1[goodMatches[i].queryIdx].pt;
     cv::Point2f pt2 = keypoints2[goodMatches[i].trainIdx].pt;
-
     points1.push_back(pt1);
     points2.push_back(pt2);
-
-    pt2.x += img1.cols; // Shift keypoints of the second image to the right
-
-    // Generate a random color
-    cv::Scalar color(dis(gen), dis(gen), dis(gen));
-
-    // Draw the keypoints with the generated color
-    cv::circle(imgMatches, pt1, 20, color, -1, cv::LINE_AA);
-    cv::circle(imgMatches, pt2, 20, color, -1, cv::LINE_AA);
   }
 
-  // generate two random numbers
-  std::vector<cv::Point2f> points1_est, points2_est;
+  // Generate two random integers
+  std::random_device rd;
+  std::mt19937 gen(rd());
   std::uniform_int_distribution<int> dis2(0, points1.size() - 1);
 
   std::set<int> numbers;
@@ -158,63 +142,38 @@ int main() {
   ++it;
   num2 = *it;
 
-  // std::cout << "num1 and num2: " << num1 << " " << num2 << "\n";
+  // Push back two random visual corespondences
+  std::vector<cv::Point2f> points1_est = {points1[num1], points1[num2]};
+  std::vector<cv::Point2f> points2_est = {points2[num1], points2[num2]};
 
-  // push back two random points
-  points1_est.push_back(points1[num1]);
-  points1_est.push_back(points1[num2]);
-  points2_est.push_back(points2[num1]);
-  points2_est.push_back(points2[num2]);
-
-  // calculate essential matrix
+  // Find the essential matrix
   cv::Mat k = (cv::Mat_<double>(3, 3) << 1280.7, 0.0, 969.4257, 0.0, 1281.2,
                639.7227, 0.0, 0.0, 1.0);
   std::vector<cv::Mat> E = PM::findEssential(points1_est, points2_est, k);
 
+  /*
   cv::Mat F = k.t().inv() * E[0] * k.inv();
   cv::Mat F_normalized = PM::_normalizeF(F);
 
-  drawEpipolarLines(img1, img2, F_normalized, points1, points2);
+  drawEpipolarLines(img1, img2, F, points1, points2);
 
   cv::Mat err(points1.size(), 1, CV_64FC1);
   PM::_computeError(points1, points2, F_normalized, err);
-
+  int inlierCount = PM::_countBelow(err, 170);
   std::cout << err << "\n";
-  return 0;
-
-  for (ulong it = 0; it < points1.size(); ++it) {
-    /*
-  cv::Mat x_prime =
-      (cv::Mat_<double>(3, 1) << points2[it].x, points2[it].y, 1.0f);
-  cv::Mat x = (cv::Mat_<double>(3, 1) << points1[it].x,
-  points1[it].y, 1.0f); cv::Mat res = x_prime.t() * F * x; std::cout <<
-  "res: " << _to2Sig(res.at<float>(0, 0)) << "\n";
+  std::cout << inlierCount << "\n";
   */
 
-    /*
-    std::cout << err;
-    return 0;
+  //
 
-    const double *errPtr = err.ptr<double>();
-    double sum_all = 0;
-    for (int i = 0; i < err.total(); ++i) {
-      double thresh = 100;
-      int t = errPtr[i] <= thresh;
-      sum_all += t;
-      std::cout << "err: " << errPtr[i] << "\n";
-    }
-    */
+  int max_iter = 3000;
+  double threshold = 150;
+  double confidence = 99.0;
+  PM::RANSACFundam ransac(max_iter, threshold, confidence);
 
-    // std::cout << "sum: " << sum_all << "\n";
-  }
-  // for (int i = 0; i < 2; ++i)
-  //  std::cout << points1_est[i] << " " << points2_est[i] << "\n";
-
-  // Display the matched keypoints
-  // cv::namedWindow("ORB Matches", cv::WINDOW_NORMAL);
-  // cv::resizeWindow("ORB Matches", 600, 600);
-  // cv::imshow("ORB Matches", imgMatches);
-  // cv::waitKey(0);
+  cv::Mat F = PM::findEssential(points1, points2, k, ransac);
+  cv::Mat F_normalized = PM::_normalizeF(F);
+  drawEpipolarLines(img1, img2, F_normalized, points1, points2);
 
   return 0;
 }

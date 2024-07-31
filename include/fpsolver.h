@@ -13,6 +13,93 @@
 
 namespace PM {
 
+std::vector<cv::Mat>
+findEssential(const std::vector<cv::Point2f> &original_pixels,
+              const std::vector<cv::Point2f> &corresponding_pixels,
+              const cv::Mat &k);
+void _computeError(std::vector<cv::Point2f> m1, std::vector<cv::Point2f> m2,
+                   cv::Mat _model, cv::Mat &_err);
+
+class RANSACFundam {
+public:
+  RANSACFundam(int maxIterations, double threshold, double confidence)
+      : maxIterations(maxIterations), threshold(threshold),
+        confidence(confidence) {
+    std::srand(std::time(0));
+  }
+
+  // Fit a line to the given points using RANSAC
+  cv::Mat run(const std::vector<cv::Point2f> &points1,
+              const std::vector<cv::Point2f> &points2, const cv::Mat k) {
+    int bestInlierCount = 0;
+    cv::Mat bestFundam;
+    int totalPoints = points1.size();
+    cv::Mat besterr;
+
+    for (int i = 0; i < maxIterations; ++i) {
+      // Randomly select two points to calculate fundamental matrices
+      int idx1 = std::rand() % totalPoints;
+      int idx2 = std::rand() % totalPoints;
+
+      if (idx1 == idx2) {
+        --i;
+        continue; // Avoid selecting the same point twice
+      }
+
+      std::vector<cv::Point2f> points1_est = {points1[idx1], points1[idx2]};
+      std::vector<cv::Point2f> points2_est = {points2[idx1], points2[idx2]};
+
+      // Calculate line parameters (y = mx + b)
+      std::vector<cv::Mat> E = findEssential(points1_est, points2_est, k);
+
+      // Evaluate multiple candidates of essential matrices
+      for (int i = 0; i < E.size(); ++i) {
+        cv::Mat F = k.t().inv() * E[i] * k.inv();
+        cv::Mat err(points1.size(), 1, CV_64FC1);
+        _computeError(points1, points2, F, err);
+
+        // todo: calculate inlierCount
+        int inlierCount = _countBelow(err, threshold);
+        if (inlierCount > bestInlierCount) {
+          besterr = err;
+          bestInlierCount = inlierCount;
+          bestFundam = F;
+        }
+
+        // Check if the model is good enough
+        double inlierRatio = static_cast<double>(bestInlierCount) / totalPoints;
+        if (inlierRatio > confidence)
+          return F;
+      }
+    }
+
+    std::cout << "besterr: " << besterr << "\n";
+    std::cout << "TotalPoints: " << points1.size() << "\n";
+    std::cout << "bestInlierCount: " << bestInlierCount << "\n";
+    return bestFundam;
+  }
+
+  int _countBelow(const cv::Mat &err, double threshold) {
+    cv::Mat mask;
+    cv::threshold(err, mask, threshold, 255, cv::THRESH_BINARY_INV);
+    int count = cv::countNonZero(mask);
+    return count;
+  }
+
+private:
+  int maxIterations;
+  double distanceThreshold;
+  double confidence;
+  double threshold;
+};
+
+int _countBelow(const cv::Mat &err, double threshold) {
+  cv::Mat mask;
+  cv::threshold(err, mask, threshold, 255, cv::THRESH_BINARY_INV);
+  int count = cv::countNonZero(mask);
+  return count;
+}
+
 Eigen::Vector3d _backProjectPx(const Eigen::Vector3d &px,
                                const Eigen::Matrix3d &intrinsic_matrix) {
   // returning ray vector in camera coordinate from an image pixel
@@ -185,6 +272,14 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
       findEssential(orig_px_eig, corr_px_eig, k_eig);
   std::vector<cv::Mat> E_Cv = _toCv(E_eig);
   return E_Cv;
+}
+
+cv::Mat findEssential(const std::vector<cv::Point2f> &original_pixels,
+                      const std::vector<cv::Point2f> &corresponding_pixels,
+                      const cv::Mat &k, RANSACFundam ransac) {
+
+  cv::Mat F = ransac.run(original_pixels, corresponding_pixels, k);
+  return F;
 }
 
 cv::Mat
