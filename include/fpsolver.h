@@ -15,8 +15,8 @@ std::vector<cv::Mat>
 findEssential(const std::vector<cv::Point2f> &original_pixels,
               const std::vector<cv::Point2f> &corresponding_pixels,
               const cv::Mat &k);
-void _computeError(std::vector<cv::Point2f> m1, std::vector<cv::Point2f> m2,
-                   cv::Mat _model, cv::Mat &_err);
+void computeError(std::vector<cv::Point2f> m1, std::vector<cv::Point2f> m2,
+                  cv::Mat _model, cv::Mat &_err);
 
 class RANSACFundam {
 public:
@@ -54,7 +54,7 @@ public:
       for (int i = 0; i < E.size(); ++i) {
         cv::Mat F = k.t().inv() * E[i] * k.inv();
         cv::Mat err(points1.size(), 1, CV_64FC1);
-        _computeError(points1, points2, F, err);
+        computeError(points1, points2, F, err);
 
         // count the number of inliers
         int inlierCount = _countBelow(err, threshold);
@@ -102,15 +102,13 @@ cv::Mat _normalizeF(const cv::Mat &F) {
   return F_normalized;
 }
 
-std::vector<cv::Mat> _calcE(const cv::Mat &U, const cv::Mat &y,
-                            const cv::Mat &C) {
+cv::Mat _calcE(const cv::Mat &U, const cv::Mat &y, const cv::Mat &C) {
   std::vector<cv::Mat> essentialMatrices;
   cv::Mat a = U * y;
   cv::Mat b = C * a;
   cv::Mat E = (cv::Mat_<double>(3, 3) << 0, b.at<double>(0), 0,
                -a.at<double>(0), 0, a.at<double>(1), 0, b.at<double>(1), 0);
-  essentialMatrices.push_back(E);
-  return essentialMatrices;
+  return E;
 }
 
 std::vector<cv::Mat>
@@ -162,7 +160,8 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
       double y1 = pow(-1, i);
       double y2 = 0;
       cv::Mat y = (cv::Mat_<double>(2, 1) << y1, y2);
-      essentialMatrices = _calcE(U, y, C);
+      cv::Mat E = _calcE(U, y, C);
+      essentialMatrices.push_back(E);
     }
   }
   // Two possible solutions when s2 > 1
@@ -172,7 +171,8 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
       double y1 = 0;
       double y2 = pow(-1, i);
       cv::Mat y = (cv::Mat_<double>(2, 1) << y1, y2);
-      essentialMatrices = _calcE(U, y, C);
+      cv::Mat E = _calcE(U, y, C);
+      essentialMatrices.push_back(E);
     }
   }
   // Four possible solutions when s1 >= 1 and s2 <= 1
@@ -182,7 +182,8 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
         double y1 = pow(-1, i) * sqrt((1 - s2) / (s1 - s2));
         double y2 = pow(-1, j) * sqrt((s1 - 1) / (s1 - s2));
         cv::Mat y = (cv::Mat_<double>(2, 1) << y1, y2);
-        essentialMatrices = _calcE(U, y, C);
+        cv::Mat E = _calcE(U, y, C);
+        essentialMatrices.push_back(E);
       }
     }
   }
@@ -199,8 +200,8 @@ cv::Mat findFundam(const std::vector<cv::Point2f> &original_pixels,
   return F_normalized;
 }
 
-void _computeError(std::vector<cv::Point2f> m1, std::vector<cv::Point2f> m2,
-                   cv::Mat _model, cv::Mat &_err) {
+void computeError(std::vector<cv::Point2f> m1, std::vector<cv::Point2f> m2,
+                  cv::Mat _model, cv::Mat &_err) {
 
   const double *F = _model.ptr<double>();
   double *err = _err.ptr<double>();

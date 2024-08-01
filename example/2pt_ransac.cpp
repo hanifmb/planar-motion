@@ -79,7 +79,7 @@ void drawEpilines(const cv::Mat &img1, const cv::Mat &img2, const cv::Mat &F,
   img2_copy.copyTo(combinedImage(
       cv::Rect(0, img1_copy.rows, img2_copy.cols, img2_copy.rows)));
 
-  cv::imshow("Epipolar lines", img1_copy);
+  cv::imshow("Epipolar lines", combinedImage);
   cv::imwrite("../../results/tmp/epilines_output.png", combinedImage);
   cv::waitKey(0);
 }

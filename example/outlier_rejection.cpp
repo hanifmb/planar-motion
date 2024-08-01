@@ -189,9 +189,9 @@ int main() {
 
   size_t size = points1.size();
   cv::Mat err(size, 1, CV_64FC1);
-  PM::_computeError(points1, points2, F, err);
+  PM::computeError(points1, points2, F, err);
 
-  // draw matches
+  // Draw matches
   drawMatches(img1, img2, points1, points2, err, threshold);
 
   return 0;
