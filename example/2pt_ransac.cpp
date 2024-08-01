@@ -58,7 +58,7 @@ void drawEpilines(const cv::Mat &img1, const cv::Mat &img2, const cv::Mat &F,
                        -(lines2[i][2] + lines2[i][0] * img2_copy.cols) /
                            lines2[i][1]),
              color);
-    cv::circle(img1_copy, points1[i], 5, color, -1);
+    cv::circle(img1_copy, points1[i], 5 - 1, color, -1);
 
     // Epipolar lines in the second image (corresponding to points in the first
     // image)
@@ -73,6 +73,16 @@ void drawEpilines(const cv::Mat &img1, const cv::Mat &img2, const cv::Mat &F,
   // Display the images with epipolar lines
   cv::imshow("Image 1 with Epipolar Lines", img1_copy);
   cv::imshow("Image 2 with Epipolar Lines", img2_copy);
+
+  // Create a combined image with images stacked vertically
+  cv::Mat combinedImage(img1_copy.rows + img2_copy.rows,
+                        std::max(img1_copy.cols, img2_copy.cols),
+                        img1_copy.type());
+  img1_copy.copyTo(
+      combinedImage(cv::Rect(0, 0, img1_copy.cols, img1_copy.rows)));
+  img2_copy.copyTo(combinedImage(
+      cv::Rect(0, img1_copy.rows, img2_copy.cols, img2_copy.rows)));
+  cv::imwrite("output_epilines.png", combinedImage);
   cv::waitKey(0);
 }
 
@@ -80,8 +90,9 @@ std::tuple<pointsVec, pointsVec> matchFeatures(const cv::Mat &img1,
                                                const cv::Mat &img2,
                                                float ratio_thresh,
                                                int num_top_matches) {
-  // Initialize the ORB detector
-  cv::Ptr<cv::ORB> orb = cv::ORB::create();
+
+  // Initialize CLAHE (Contrast Limited Adaptive Histogram Equalization)
+  cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(2.0, cv::Size(8, 8));
 
   // Convert images to grayscale if they are not already
   cv::Mat img1Gray, img2Gray;
@@ -96,14 +107,24 @@ std::tuple<pointsVec, pointsVec> matchFeatures(const cv::Mat &img1,
     img2Gray = img2;
   }
 
+  // Apply CLAHE to the grayscale images
+  cv::Mat img1Equalized, img2Equalized;
+  clahe->apply(img1Gray, img1Equalized);
+  clahe->apply(img2Gray, img2Equalized);
+
+  // Initialize the SIFT detector with custom parameters
+  cv::Ptr<cv::SIFT> sift = cv::SIFT::create();
+
   // Detect keypoints and compute descriptors
   std::vector<cv::KeyPoint> keypoints1, keypoints2;
   cv::Mat descriptors1, descriptors2;
-  orb->detectAndCompute(img1Gray, cv::noArray(), keypoints1, descriptors1);
-  orb->detectAndCompute(img2Gray, cv::noArray(), keypoints2, descriptors2);
+  sift->detectAndCompute(img1Equalized, cv::noArray(), keypoints1,
+                         descriptors1);
+  sift->detectAndCompute(img2Equalized, cv::noArray(), keypoints2,
+                         descriptors2);
 
   // Use BFMatcher to match descriptors
-  cv::BFMatcher bfMatcher(cv::NORM_HAMMING);
+  cv::BFMatcher bfMatcher(cv::NORM_L2);
   std::vector<std::vector<cv::DMatch>> knnMatches;
   bfMatcher.knnMatch(descriptors1, descriptors2, knnMatches, 2);
 
@@ -140,9 +161,9 @@ std::tuple<pointsVec, pointsVec> matchFeatures(const cv::Mat &img1,
 
 int main() {
   std::string imagepath1 =
-      "/home/batman/fun/pose-from-planar-motion/input_images/3.jpg";
+      "/home/batman/fun/planar-motion-old/planar-motion/images/0000000010.png";
   std::string imagepath2 =
-      "/home/batman/fun/pose-from-planar-motion/input_images/4.jpg";
+      "/home/batman/fun/planar-motion-old/planar-motion/images/0000000015.png";
   // Load the images
   cv::Mat img1 = cv::imread(imagepath1, cv::IMREAD_COLOR);
   cv::Mat img2 = cv::imread(imagepath2, cv::IMREAD_COLOR);
@@ -152,36 +173,23 @@ int main() {
   }
 
   // Feature matching
-  float ratio_thresh = 0.85;
-  int num_top_matches = 100;
+  float ratio_thresh = 0.95;
+  int num_top_matches = 350;
+
   pointsVec points1, points2;
   std::tie(points1, points2) =
       matchFeatures(img1, img2, ratio_thresh, num_top_matches);
 
-  // Generate two random integers
-  int num1, num2;
-  std::tie(num1, num2) = randomizeInts(0, points1.size() - 1);
-
-  // Push back two random visual corespondences
-  pointsVec points1_est = {points1[num1], points1[num2]};
-  pointsVec points2_est = {points2[num1], points2[num2]};
-
-  cv::Mat k = (cv::Mat_<double>(3, 3) << 1280.7, 0.0, 969.4257, 0.0, 1281.2,
-               639.7227, 0.0, 0.0, 1.0);
+  cv::Mat k = (cv::Mat_<double>(3, 3) << 984.2439, 0.0, 690.0000, 0.0, 980.8141,
+               233.1966, 0.0, 0.0, 1.0);
 
   // Find fundamental matrix with ransac
-  int max_iter = 1000;
+  int max_iter = 10000;
   double threshold = 20;
   double confidence = 99.0;
   PM::RANSACFundam ransac(max_iter, threshold, confidence);
 
-  auto start = std::chrono::high_resolution_clock::now();
-
   cv::Mat F = PM::findFundam(points1, points2, k, ransac);
-
-  auto end = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> elapsed = end - start;
-  std::cout << "Elapsed time: " << elapsed.count() << " seconds" << std::endl;
 
   // Visualize the epipolar lines
   drawEpilines(img1, img2, F, points1, points2);
