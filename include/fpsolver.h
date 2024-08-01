@@ -102,20 +102,21 @@ cv::Mat _normalizeF(const cv::Mat &F) {
   return F_normalized;
 }
 
+std::vector<cv::Mat> _calcE(const cv::Mat &U, const cv::Mat &y,
+                            const cv::Mat &C) {
+  std::vector<cv::Mat> essentialMatrices;
+  cv::Mat a = U * y;
+  cv::Mat b = C * a;
+  cv::Mat E = (cv::Mat_<double>(3, 3) << 0, b.at<double>(0), 0,
+               -a.at<double>(0), 0, a.at<double>(1), 0, b.at<double>(1), 0);
+  essentialMatrices.push_back(E);
+  return essentialMatrices;
+}
+
 std::vector<cv::Mat>
 findEssential(const std::vector<cv::Point2f> &original_pixels,
               const std::vector<cv::Point2f> &corresponding_pixels,
               const cv::Mat &k) {
-  // Check for the right size of the input pixel correspondences
-  if (original_pixels.size() != corresponding_pixels.size()) {
-    std::cout << "Same size pixels are required\n";
-    return {};
-  } else if (original_pixels.size() < 2 || corresponding_pixels.size() < 2) {
-    std::string pixel_size = std::to_string(original_pixels.size());
-    std::cout << "Two point correspondences required, " << pixel_size
-              << " pixels are given\n";
-    return {};
-  }
 
   std::vector<cv::Vec3d> op_cam;
   std::vector<cv::Vec3d> cp_cam;
@@ -131,35 +132,21 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
     cp_cam.push_back(_backProjectPx(cp_h, k));
   }
 
-  // The two feature points on the first image
-  double x1_l = op_cam[0][0];
-  double y1_l = op_cam[0][1];
-  double z1_l = op_cam[0][2];
-  double x2_l = op_cam[1][0];
-  double y2_l = op_cam[1][1];
-  double z2_l = op_cam[1][2];
+  double x1_l = op_cam[0][0], y1_l = op_cam[0][1], z1_l = op_cam[0][2];
+  double x2_l = op_cam[1][0], y2_l = op_cam[1][1], z2_l = op_cam[1][2];
+  double x1_r = cp_cam[0][0], y1_r = cp_cam[0][1], z1_r = cp_cam[0][2];
+  double x2_r = cp_cam[1][0], y2_r = cp_cam[1][1], z2_r = cp_cam[1][2];
 
-  // The two feature points on the second image
-  double x1_r = cp_cam[0][0];
-  double y1_r = cp_cam[0][1];
-  double z1_r = cp_cam[0][2];
-  double x2_r = cp_cam[1][0];
-  double y2_r = cp_cam[1][1];
-  double z2_r = cp_cam[1][2];
-
-  // Construct matrix A1 and A2 from the epipolar constraint
   cv::Mat A = (cv::Mat_<double>(2, 2) << x1_l * y1_r, -z1_l * y1_r, x2_l * y2_r,
                -z2_l * y2_r);
   cv::Mat B = (cv::Mat_<double>(2, 2) << x1_r * y1_l, z1_r * y1_l, x2_r * y2_l,
                z2_r * y2_l);
 
-  cv::Mat C;
-  cv::invert(B, C, cv::DECOMP_SVD);
-  C = C * A;
+  cv::Mat C = B.inv() * A;
   cv::Mat CTC = C.t() * C;
 
   // Perform SVD
-  cv::SVD svd(CTC, cv::SVD::FULL_UV);
+  cv::SVD svd(CTC, cv::SVD::MODIFY_A);
   cv::Mat U = svd.u;
   cv::Mat S = svd.w; // Singular values
 
@@ -175,11 +162,7 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
       double y1 = pow(-1, i);
       double y2 = 0;
       cv::Mat y = (cv::Mat_<double>(2, 1) << y1, y2);
-      cv::Mat a = U * y;
-      cv::Mat b = C * a;
-      cv::Mat E = (cv::Mat_<double>(3, 3) << 0, b.at<double>(0), 0,
-                   -a.at<double>(0), 0, a.at<double>(1), 0, b.at<double>(1), 0);
-      essentialMatrices.push_back(E);
+      essentialMatrices = _calcE(U, y, C);
     }
   }
   // Two possible solutions when s2 > 1
@@ -189,11 +172,7 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
       double y1 = 0;
       double y2 = pow(-1, i);
       cv::Mat y = (cv::Mat_<double>(2, 1) << y1, y2);
-      cv::Mat a = U * y;
-      cv::Mat b = C * a;
-      cv::Mat E = (cv::Mat_<double>(3, 3) << 0, b.at<double>(0), 0,
-                   -a.at<double>(0), 0, a.at<double>(1), 0, b.at<double>(1), 0);
-      essentialMatrices.push_back(E);
+      essentialMatrices = _calcE(U, y, C);
     }
   }
   // Four possible solutions when s1 >= 1 and s2 <= 1
@@ -203,12 +182,7 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
         double y1 = pow(-1, i) * sqrt((1 - s2) / (s1 - s2));
         double y2 = pow(-1, j) * sqrt((s1 - 1) / (s1 - s2));
         cv::Mat y = (cv::Mat_<double>(2, 1) << y1, y2);
-        cv::Mat a = U * y;
-        cv::Mat b = C * a;
-        cv::Mat E =
-            (cv::Mat_<double>(3, 3) << 0, b.at<double>(0), 0, -a.at<double>(0),
-             0, a.at<double>(1), 0, b.at<double>(1), 0);
-        essentialMatrices.push_back(E);
+        essentialMatrices = _calcE(U, y, C);
       }
     }
   }
