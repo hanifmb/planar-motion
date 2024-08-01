@@ -152,15 +152,14 @@ void drawMatches(const cv::Mat &image1, const cv::Mat &image2,
 
   // Display the combined image
   cv::imshow("Feature Matches", combinedImage);
-  cv::imwrite("output.png", combinedImage);
+
+  cv::imwrite("../../results/tmp/inlier_output.png", combinedImage);
   cv::waitKey(0); // Wait for a key press to close the window
 }
 
 int main() {
-  std::string imagepath1 =
-      "/home/batman/fun/planar-motion-old/planar-motion/images/0000000010.png";
-  std::string imagepath2 =
-      "/home/batman/fun/planar-motion-old/planar-motion/images/0000000015.png";
+  std::string imagepath1 = "../../dataset/0000000010.png";
+  std::string imagepath2 = "../../dataset/0000000015.png";
   // Load the images
   cv::Mat img1 = cv::imread(imagepath1, cv::IMREAD_COLOR);
   cv::Mat img2 = cv::imread(imagepath2, cv::IMREAD_COLOR);

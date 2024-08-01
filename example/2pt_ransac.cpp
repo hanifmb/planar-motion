@@ -70,10 +70,6 @@ void drawEpilines(const cv::Mat &img1, const cv::Mat &img2, const cv::Mat &F,
     cv::circle(img2_copy, points2[i], 5, color, -1);
   }
 
-  // Display the images with epipolar lines
-  cv::imshow("Image 1 with Epipolar Lines", img1_copy);
-  cv::imshow("Image 2 with Epipolar Lines", img2_copy);
-
   // Create a combined image with images stacked vertically
   cv::Mat combinedImage(img1_copy.rows + img2_copy.rows,
                         std::max(img1_copy.cols, img2_copy.cols),
@@ -82,7 +78,9 @@ void drawEpilines(const cv::Mat &img1, const cv::Mat &img2, const cv::Mat &F,
       combinedImage(cv::Rect(0, 0, img1_copy.cols, img1_copy.rows)));
   img2_copy.copyTo(combinedImage(
       cv::Rect(0, img1_copy.rows, img2_copy.cols, img2_copy.rows)));
-  cv::imwrite("output_epilines.png", combinedImage);
+
+  cv::imshow("Epipolar lines", img1_copy);
+  cv::imwrite("../../results/tmp/epilines_output.png", combinedImage);
   cv::waitKey(0);
 }
 
@@ -160,10 +158,8 @@ std::tuple<pointsVec, pointsVec> matchFeatures(const cv::Mat &img1,
 }
 
 int main() {
-  std::string imagepath1 =
-      "/home/batman/fun/planar-motion-old/planar-motion/images/0000000010.png";
-  std::string imagepath2 =
-      "/home/batman/fun/planar-motion-old/planar-motion/images/0000000015.png";
+  std::string imagepath1 = "../../dataset/0000000010.png";
+  std::string imagepath2 = "../../dataset/0000000015.png";
   // Load the images
   cv::Mat img1 = cv::imread(imagepath1, cv::IMREAD_COLOR);
   cv::Mat img2 = cv::imread(imagepath2, cv::IMREAD_COLOR);
