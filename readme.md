@@ -38,12 +38,13 @@ make
 
 ## Usage
 
-The simplest example is to calculate the fundamental matrix directly from two visual correspondences. 
+The simplest example is to calculate the essential matrix directly from two visual correspondences. 
 
 ```cpp
 #include "fpsolver.h"
 
 using pointsVec = std::vector<cv::Point2f>;
+using matVec = std::vector<cv::Mat>;
 
 int main() {
   // needs to be exactly two correspondences
@@ -53,7 +54,7 @@ int main() {
   cv::Mat k = (cv::Mat_<double>(3, 3) << 1280.7, 0.0, 969.4257, 0.0, 1281.2,
                639.7227, 0.0, 0.0, 1.0); // intrinsic matrix example
 
-  cv::Mat F = PM::findFundam(points1_est, points2_est, k);
+  matVec E = PM::findEssential(points1_est, points2_est, k);
 }
 
 ```
