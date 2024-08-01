@@ -3,7 +3,7 @@ This repository contains C++ examples of fundamental matrix estimation using two
 
 #### What is planar motion?
 
-Any agent moving on a planar surface can be described as planar motion. For example, this includes a car moving along a flat road or a multirotor flying at a constant altitude.
+Any agent moving on a planar surface can be described as planar motion. For example, a car driving along a flat road or a multirotor flying at a constant altitude is planar motion.
 
 #### Why should I care about minimal solutions?
 
@@ -11,7 +11,7 @@ It is particularly useful for robustification against outliers (e.g. in RANSAC).
 
 #### What do we calculate exactly?
 
-Imagine a vehicle in planar motion: its body rotates only along the yaw axis (y-axis). Conversely, there is no translation along the y-axis, so this movement can be ignored.
+Imagine a vehicle in planar motion: its body rotates only along the yaw axis (y-axis). Conversely, there is no translation along the y-axis, so we can zero out the irrelevant movements.
 
 <p align="center">
   <img src="https://latex.codecogs.com/svg.image?$%5Cmathbf%7BR%7D%5E%7B%5Cprime%7D=%5Cleft%5B%5Cbegin%7Barray%7D%7Bccc%7D%5Ccos%5Ctheta&0&%5Csin%5Ctheta%5C%5C0&1&0%5C%5C-%5Csin%5Ctheta&0&%5Ccos%5Ctheta%5Cend%7Barray%7D%5Cright%5D%5Cquad$and$%5Cquad%5Cmathbf%7Bt%7D%5E%7B%5Cprime%7D=%5Crho%5Cleft%5B%5Cbegin%7Barray%7D%7Bc%7D%5Csin%5Cphi%5C%5C0%5C%5C%5Ccos%5Cphi%5Cend%7Barray%7D%5Cright%5D$" alt="equation">
@@ -23,7 +23,7 @@ After converting the above translation to the essential matrix translation compo
   <img src="https://latex.codecogs.com/svg.image?$%5Cmathrm%7BE%7D=%5Crho%5Cleft%5B%5Cbegin%7Barray%7D%7Bccc%7D0&%5Ccos(%5Ctheta-%5Cphi)&0%5C%5C-%5Ccos%5Cphi&0&%5Csin%5Cphi%5C%5C0&%5Csin(%5Ctheta-%5Cphi)&0%5Cend%7Barray%7D%5Cright%5D$" alt="equation">
 </p>
 
-Solving the matrix above reduces to a geometric problem of finding the intersection between the ellipse and the circle. Assuming the intrinsic matrix is known, the fundamental matrix and its pose can be derived.
+Solving the matrix above reduces to a geometric problem of finding the intersection between an ellipse and a circle. Assuming the intrinsic matrix is known, the fundamental matrix and its pose can be derived.
 
 ## Build
 
@@ -73,7 +73,16 @@ A more useful example is to utilize RANSAC for robustification against outliers.
 
   cv::Mat F = PM::findFundam(points1_est, points2_est, k, ransac);
 ```
+## Results
+Results are generated from the provided example code. Below are the epipolar lines visualized from the estimated fundamental matrix using RANSAC; all points are visualized including the outliers. 
+![epilines](https://github.com/hanifmb/planar-motion/blob/main/results/epilines_output.png)
 
+The estimated fundamental matrix is useful to detect outliers in the matched features.
+![inliers](https://github.com/hanifmb/planar-motion/blob/main/results/inliers_output.png)
+
+## Todo
+1. Two visual correspondences yield four solutions for the essential matrix. Early rejection might be possible instead of feeding them all into RANSAC.
+2. Closed-form solution exists. Also discussed in the same paper below. It requires no SVD, should be way faster.
 
 ## References
 
