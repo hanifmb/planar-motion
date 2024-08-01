@@ -21,7 +21,7 @@ void _computeError(std::vector<cv::Point2f> m1, std::vector<cv::Point2f> m2,
 class RANSACFundam {
 public:
   RANSACFundam(int maxIterations, double threshold, double confidence)
-      : maxIterations(maxIterations), threshold(threshold),
+      : maxIterations(maxIterations), threshold(threshold * threshold),
         confidence(confidence) {
     std::srand(std::time(0));
   }

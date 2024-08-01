@@ -171,7 +171,7 @@ int main() {
 
   // Find fundamental matrix with ransac
   int max_iter = 1000;
-  double threshold = 350;
+  double threshold = 20;
   double confidence = 99.0;
   PM::RANSACFundam ransac(max_iter, threshold, confidence);
 
