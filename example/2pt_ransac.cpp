@@ -175,7 +175,13 @@ int main() {
   double confidence = 99.0;
   PM::RANSACFundam ransac(max_iter, threshold, confidence);
 
+  auto start = std::chrono::high_resolution_clock::now();
+
   cv::Mat F = PM::findFundam(points1, points2, k, ransac);
+
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> elapsed = end - start;
+  std::cout << "Elapsed time: " << elapsed.count() << " seconds" << std::endl;
 
   // Visualize the epipolar lines
   drawEpilines(img1, img2, F, points1, points2);
