@@ -11,14 +11,14 @@
 
 namespace PM {
 
-std::vector<cv::Mat>
-findEssential(const std::vector<cv::Point2f> &original_pixels,
-              const std::vector<cv::Point2f> &corresponding_pixels,
-              const cv::Mat &k);
-void computeError(std::vector<cv::Point2f> m1, std::vector<cv::Point2f> m2,
-                  cv::Mat _model, cv::Mat &_err);
+using pointVec = std::vector<cv::Point2f>;
+using matVec = std::vector<cv::Mat>;
 
+matVec findEssential(const pointVec &original_pixels,
+                     const pointVec &corresponding_pixels, const cv::Mat &k);
+void computeError(pointVec m1, pointVec m2, cv::Mat model, cv::Mat &err);
 class RANSACFundam {
+
 public:
   RANSACFundam(int maxIterations, double threshold, double confidence)
       : maxIterations(maxIterations), threshold(threshold * threshold),
@@ -26,8 +26,8 @@ public:
     std::srand(std::time(0));
   }
 
-  cv::Mat run(const std::vector<cv::Point2f> &points1,
-              const std::vector<cv::Point2f> &points2, const cv::Mat k) {
+  cv::Mat run(const pointVec &points1, const pointVec &points2,
+              const cv::Mat k) const {
     int bestInlierCount = 0;
     cv::Mat bestFundam;
     int totalPoints = points1.size();
@@ -43,19 +43,19 @@ public:
         continue; // Avoid selecting the same point twice
       }
 
-      std::vector<cv::Point2f> points1_est = {points1[idx1], points1[idx2]};
-      std::vector<cv::Point2f> points2_est = {points2[idx1], points2[idx2]};
+      pointVec points1_est = {points1[idx1], points1[idx2]};
+      pointVec points2_est = {points2[idx1], points2[idx2]};
 
-      std::vector<cv::Mat> E = findEssential(points1_est, points2_est, k);
+      matVec E = findEssential(points1_est, points2_est, k);
 
       // Evaluate multiple candidates of essential matrices
-      for (int i = 0; i < E.size(); ++i) {
+      for (size_t i = 0; i < E.size(); ++i) {
         cv::Mat F = k.t().inv() * E[i] * k.inv();
         cv::Mat err(points1.size(), 1, CV_64FC1);
         computeError(points1, points2, F, err);
 
-        // count the number of inliers
-        int inlierCount = _countBelow(err, threshold);
+        // Count the number of inliers
+        int inlierCount = countBelow(err, threshold);
         if (inlierCount > bestInlierCount) {
           besterr = err;
           bestInlierCount = inlierCount;
@@ -72,22 +72,21 @@ public:
     return bestFundam;
   }
 
-  int _countBelow(const cv::Mat &err, double threshold) {
+private:
+  int maxIterations;
+  double confidence;
+  double threshold;
+
+  int countBelow(const cv::Mat &err, double threshold) const {
     cv::Mat mask;
     cv::threshold(err, mask, threshold, 255, cv::THRESH_BINARY_INV);
     int count = cv::countNonZero(mask);
     return count;
   }
-
-private:
-  int maxIterations;
-  double distanceThreshold;
-  double confidence;
-  double threshold;
 };
 
 cv::Mat _backProjectPx(const cv::Vec3d &px, const cv::Mat &intrinsic_matrix) {
-  // returning ray vector in camera coordinate from an image pixel
+  // Returning ray vector in camera coordinate from an image pixel
   return intrinsic_matrix.inv() * px;
 }
 
@@ -97,24 +96,42 @@ cv::Mat _normalizeF(const cv::Mat &F) {
   return F_normalized;
 }
 
-cv::Mat _calcE(const cv::Mat &U, const cv::Mat &y, const cv::Mat &C) {
-  std::vector<cv::Mat> essentialMatrices;
-  cv::Mat a = U * y;
-  cv::Mat b = C * a;
-  cv::Mat E = (cv::Mat_<double>(3, 3) << 0, b.at<double>(0), 0,
-               -a.at<double>(0), 0, a.at<double>(1), 0, b.at<double>(1), 0);
-  return E;
+void computeError(pointVec m1, pointVec m2, cv::Mat model, cv::Mat &err) {
+
+  const double *F = model.ptr<double>();
+  double *errPtr = err.ptr<double>();
+
+  int count = m1.size();
+  for (int i = 0; i < count; i++) {
+    double a, b, c, d1, d2, s1, s2;
+
+    a = F[0] * m1[i].x + F[1] * m1[i].y + F[2];
+    b = F[3] * m1[i].x + F[4] * m1[i].y + F[5];
+    c = F[6] * m1[i].x + F[7] * m1[i].y + F[8];
+
+    s2 = 1. / (a * a + b * b);
+    d2 = m2[i].x * a + m2[i].y * b + c;
+
+    a = F[0] * m2[i].x + F[3] * m2[i].y + F[6];
+    b = F[1] * m2[i].x + F[4] * m2[i].y + F[7];
+    c = F[2] * m2[i].x + F[5] * m2[i].y + F[8];
+
+    s1 = 1. / (a * a + b * b);
+    d1 = m1[i].x * a + m1[i].y * b + c;
+
+    errPtr[i] = std::max(d1 * d1 * s1, d2 * d2 * s2);
+  }
 }
 
-std::vector<cv::Mat>
-findEssential(const std::vector<cv::Point2f> &original_pixels,
-              const std::vector<cv::Point2f> &corresponding_pixels,
-              const cv::Mat &k) {
-
-  std::vector<cv::Vec3d> op_cam;
-  std::vector<cv::Vec3d> cp_cam;
+matVec findEssential(const pointVec &original_pixels,
+                     const pointVec &corresponding_pixels, const cv::Mat &k) {
 
   // Normalize the point correspondences
+  std::vector<cv::Vec3d> op_cam, cp_cam;
+  size_t pixels_size = original_pixels.size();
+  op_cam.reserve(pixels_size);
+  cp_cam.reserve(pixels_size);
+
   for (int i = 0; i < 2; ++i) {
     // Convert to homogeneous points
     cv::Vec3d op_h(original_pixels[i].x, original_pixels[i].y, 1.0);
@@ -146,7 +163,17 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
   double s1 = S.at<double>(0);
   double s2 = S.at<double>(1);
 
-  std::vector<cv::Mat> essentialMatrices;
+  // Calculate E from U, y anc C
+  auto calcE = [](const cv::Mat &U, const cv::Mat &y,
+                  const cv::Mat &C) -> cv::Mat {
+    cv::Mat a = U * y;
+    cv::Mat b = C * a;
+    cv::Mat E = (cv::Mat_<double>(3, 3) << 0, b.at<double>(0), 0,
+                 -a.at<double>(0), 0, a.at<double>(1), 0, b.at<double>(1), 0);
+    return E;
+  };
+
+  matVec essentialMatrices;
 
   // Two possible solutions when s1 < 1
   if (s1 < 1) {
@@ -154,7 +181,7 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
       double y1 = pow(-1, i);
       double y2 = 0;
       cv::Mat y = (cv::Mat_<double>(2, 1) << y1, y2);
-      cv::Mat E = _calcE(U, y, C);
+      cv::Mat E = calcE(U, y, C);
       essentialMatrices.push_back(E);
     }
   }
@@ -164,7 +191,7 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
       double y1 = 0;
       double y2 = pow(-1, i);
       cv::Mat y = (cv::Mat_<double>(2, 1) << y1, y2);
-      cv::Mat E = _calcE(U, y, C);
+      cv::Mat E = calcE(U, y, C);
       essentialMatrices.push_back(E);
     }
   }
@@ -175,7 +202,7 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
         double y1 = pow(-1, i) * sqrt((1 - s2) / (s1 - s2));
         double y2 = pow(-1, j) * sqrt((s1 - 1) / (s1 - s2));
         cv::Mat y = (cv::Mat_<double>(2, 1) << y1, y2);
-        cv::Mat E = _calcE(U, y, C);
+        cv::Mat E = calcE(U, y, C);
         essentialMatrices.push_back(E);
       }
     }
@@ -184,41 +211,13 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
   return essentialMatrices;
 }
 
-cv::Mat findFundam(const std::vector<cv::Point2f> &original_pixels,
-                   const std::vector<cv::Point2f> &corresponding_pixels,
-                   const cv::Mat &k, RANSACFundam ransac) {
+cv::Mat findFundam(const pointVec &original_pixels,
+                   const pointVec &corresponding_pixels, const cv::Mat &k,
+                   const RANSACFundam &ransac) {
 
   cv::Mat F = ransac.run(original_pixels, corresponding_pixels, k);
   cv::Mat F_normalized = _normalizeF(F);
   return F_normalized;
-}
-
-void computeError(std::vector<cv::Point2f> m1, std::vector<cv::Point2f> m2,
-                  cv::Mat _model, cv::Mat &_err) {
-
-  const double *F = _model.ptr<double>();
-  double *err = _err.ptr<double>();
-
-  int count = m1.size();
-  for (int i = 0; i < count; i++) {
-    double a, b, c, d1, d2, s1, s2;
-
-    a = F[0] * m1[i].x + F[1] * m1[i].y + F[2];
-    b = F[3] * m1[i].x + F[4] * m1[i].y + F[5];
-    c = F[6] * m1[i].x + F[7] * m1[i].y + F[8];
-
-    s2 = 1. / (a * a + b * b);
-    d2 = m2[i].x * a + m2[i].y * b + c;
-
-    a = F[0] * m2[i].x + F[3] * m2[i].y + F[6];
-    b = F[1] * m2[i].x + F[4] * m2[i].y + F[7];
-    c = F[2] * m2[i].x + F[5] * m2[i].y + F[8];
-
-    s1 = 1. / (a * a + b * b);
-    d1 = m1[i].x * a + m1[i].y * b + c;
-
-    err[i] = std::max(d1 * d1 * s1, d2 * d2 * s2);
-  }
 }
 
 } // namespace PM
