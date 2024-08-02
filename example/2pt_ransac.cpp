@@ -113,7 +113,6 @@ std::tuple<pointsVec, pointsVec> matchFeatures(const cv::Mat &img1,
   // Initialize the SIFT detector with custom parameters
   cv::Ptr<cv::SIFT> sift = cv::SIFT::create();
 
-  // Detect keypoints and compute descriptors
   std::vector<cv::KeyPoint> keypoints1, keypoints2;
   cv::Mat descriptors1, descriptors2;
   sift->detectAndCompute(img1Equalized, cv::noArray(), keypoints1,

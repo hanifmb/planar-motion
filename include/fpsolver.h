@@ -150,7 +150,6 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
 
   // Two possible solutions when s1 < 1
   if (s1 < 1) {
-    std::cout << "s1 < 1\n";
     for (int i = 0; i < 2; ++i) {
       double y1 = pow(-1, i);
       double y2 = 0;
@@ -161,7 +160,6 @@ findEssential(const std::vector<cv::Point2f> &original_pixels,
   }
   // Two possible solutions when s2 > 1
   else if (s2 > 1) {
-    std::cout << "s2 > 1\n";
     for (int i = 0; i < 2; ++i) {
       double y1 = 0;
       double y2 = pow(-1, i);
