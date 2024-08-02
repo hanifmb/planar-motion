@@ -66,7 +66,7 @@ A more useful example is to utilize RANSAC for robustification against outliers.
   pointsVec points1_est = { ... };
   pointsVec points2_est = { ... };
 
-  int max_iter = 1000;
+  int max_iter = 50;
   double threshold = 20;
   double confidence = 99.0;
   PM::RANSACFundam ransac(max_iter, threshold, confidence);
