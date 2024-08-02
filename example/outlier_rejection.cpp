@@ -7,7 +7,7 @@
 #include <string>
 #include <tuple>
 
-using pointsVec = std::vector<cv::Point2f>;
+using pointVec = std::vector<cv::Point2f>;
 
 std::tuple<int, int> randomizeInts(int min_int, int max_int) {
   // Generate two random integers
@@ -29,10 +29,10 @@ std::tuple<int, int> randomizeInts(int min_int, int max_int) {
   return std::make_tuple(num1, num2);
 }
 
-std::tuple<pointsVec, pointsVec> matchFeatures(const cv::Mat &img1,
-                                               const cv::Mat &img2,
-                                               float ratio_thresh,
-                                               int num_top_matches) {
+std::tuple<pointVec, pointVec> matchFeatures(const cv::Mat &img1,
+                                             const cv::Mat &img2,
+                                             float ratio_thresh,
+                                             int num_top_matches) {
 
   // Initialize CLAHE (Contrast Limited Adaptive Histogram Equalization)
   cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(2.0, cv::Size(8, 8));
@@ -88,7 +88,7 @@ std::tuple<pointsVec, pointsVec> matchFeatures(const cv::Mat &img1,
   }
 
   // Accumulating matched features into points1 and points2
-  pointsVec points1, points2;
+  pointVec points1, points2;
   int matchesSize = goodMatches.size();
   points1.reserve(matchesSize);
   points2.reserve(matchesSize);
@@ -172,7 +172,7 @@ int main() {
   float ratio_thresh = 0.95;
   int num_top_matches = 350;
 
-  pointsVec points1, points2;
+  pointVec points1, points2;
   std::tie(points1, points2) =
       matchFeatures(img1, img2, ratio_thresh, num_top_matches);
 
