@@ -26,7 +26,6 @@ public:
     std::srand(std::time(0));
   }
 
-  // Fit a line to the given points using RANSAC
   cv::Mat run(const std::vector<cv::Point2f> &points1,
               const std::vector<cv::Point2f> &points2, const cv::Mat k) {
     int bestInlierCount = 0;
@@ -47,7 +46,6 @@ public:
       std::vector<cv::Point2f> points1_est = {points1[idx1], points1[idx2]};
       std::vector<cv::Point2f> points2_est = {points2[idx1], points2[idx2]};
 
-      // Calculate line parameters (y = mx + b)
       std::vector<cv::Mat> E = findEssential(points1_est, points2_est, k);
 
       // Evaluate multiple candidates of essential matrices
@@ -71,9 +69,6 @@ public:
       }
     }
 
-    std::cout << "besterr: " << besterr << "\n";
-    std::cout << "TotalPoints: " << points1.size() << "\n";
-    std::cout << "bestInlierCount: " << bestInlierCount << "\n";
     return bestFundam;
   }
 
