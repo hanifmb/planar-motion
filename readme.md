@@ -1,5 +1,5 @@
 # planar-motion
-This repository contains C++ examples of fundamental matrix estimation using two-point correspondences under planar motion. It is the implementation of the paper by Chou et. al. cited in the reference below.
+This repository contains C++ examples of fundamental matrix estimation using two-point correspondences under planar motion. It is the implementation of the paper by Chou et al. cited in the reference below.
 
 #### What is planar motion?
 
